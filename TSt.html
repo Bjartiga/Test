@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard SIGMA – KPI Operacionales (Auto Móvil/Escritorio)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}
+  .dashboard-container{max-width:1400px;margin:0 auto;background:rgba(255,255,255,.95);border-radius:20px;padding:30px;box-shadow:0 20px 40px rgba(0,0,0,.1)}
+  .header{text-align:center;margin-bottom:18px;border-bottom:3px solid #667eea;padding-bottom:16px}
+  .header h1{color:#2c3e50;font-size:2.2rem;margin-bottom:8px;font-weight:700}
+  .header p{color:#7f8c8d;font-size:1rem;font-weight:500}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin:12px 0 18px}
+  .btn{appearance:none;border:0;padding:10px 14px;border-radius:10px;cursor:pointer;background:#2d6cdf;color:#fff;font-weight:600;box-shadow:0 6px 14px rgba(45,108,223,.25)}
+  .btn:active{transform:translateY(1px)}
+  .executive-summary{background:linear-gradient(135deg,#74b9ff,#0984e3);color:#fff;padding:18px;border-radius:15px;margin-bottom:18px;box-shadow:0 10px 20px rgba(116,185,255,.3)}
+  .executive-summary h2{font-size:1.4rem;margin-bottom:8px;font-weight:600}
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px}
+  .kpi-card{background:#fff;border-radius:15px;padding:18px;box-shadow:0 10px 25px rgba(0,0,0,.08);border:1px solid rgba(102,126,234,.1);transition:transform .3s ease,box-shadow .3s ease}
+  .kpi-card:hover{transform:translateY(-4px);box-shadow:0 15px 35px rgba(0,0,0,.12)}
+  .kpi-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .kpi-title{font-size:1.1rem;font-weight:600;color:#2c3e50}
+  .kpi-status{padding:6px 12px;border-radius:18px;font-weight:700;font-size:.85rem;border:2px solid transparent}
+  .status-critical{background:#ff7675;color:#fff;border-color:#e74c3c}
+  .status-warning{background:#fdcb6e;color:#2d3436;border-color:#f39c12}
+  .status-good{background:#00b894;color:#fff;border-color:#16a085}
+  .kpi-value{font-size:2rem;font-weight:800;margin:8px 0;color:#2c3e50}
+  .kpi-target{color:#636e72;font-size:.95rem;margin-bottom:10px}
+  :root{--chart-h-desktop:220px;--chart-h-mobile:170px}
+  .chart-container{height:var(--chart-h-desktop);margin:12px 0}
+  .chart{width:100%;height:100%;display:block}
+
+  .accordion{border:1px solid #dee2e6;border-radius:12px;background:#fff;overflow:hidden}
+  .acc-item+.acc-item{border-top:1px solid #e5e7eb}
+  .acc-btn{width:100%;text-align:left;background:#f8fafc;padding:12px 14px;border:0;font-weight:700;cursor:pointer}
+  .acc-panel{padding:14px 16px}
+  .source-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .source-item{background:#fff;padding:14px;border-radius:10px;border:1px solid #dee2e6}
+  .source-item h4{color:#495057;margin-bottom:6px;font-size:1rem}
+  .reflection{background:linear-gradient(135deg,#a29bfe,#6c5ce7);color:#fff;padding:18px;border-radius:15px;margin-top:18px}
+  .reflection h3{font-size:1.2rem;margin-bottom:10px}
+  .reflection-content{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .reflection-section h4{margin-bottom:8px;font-size:1rem;color:#ddd6fe}
+  .reflection-section ul{list-style-position:inside;line-height:1.5}
+
+  @media (max-width: 900px){ .kpi-grid{grid-template-columns:repeat(2,1fr)} .source-grid{grid-template-columns:repeat(2,1fr)} .reflection-content{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width: 680px){
+    body{padding:12px}
+    .dashboard-container{padding:16px;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.08)}
+    .header h1{font-size:1.6rem}
+    .executive-summary{padding:14px}
+    .kpi-grid{grid-template-columns:1fr;gap:12px}
+    .kpi-card{padding:14px;border-radius:12px}
+    .kpi-title{font-size:1rem}
+    .kpi-value{font-size:1.7rem}
+    .kpi-target{font-size:.9rem}
+    .chart-container{height:var(--chart-h-mobile)}
+    .source-grid{grid-template-columns:1fr}
+    .reflection{padding:16px}
+    .reflection-content{grid-template-columns:1fr;gap:10px}
+  }
+
+  @media (prefers-reduced-motion: reduce){ .kpi-card:hover{transform:none} }
+
+  /* Print A3 landscape */
+  @media print{
+    @page{size:A3 landscape;margin:10mm}
+    body{background:#fff!important}
+    .dashboard-container{max-width:none;box-shadow:none}
+    .actions{display:none!important}
+    .chart-container{height:240px}
+  }
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+  <header class="header">
+    <h1>SIGMA Dashboard KPI 4.0</h1>
+    <p>Monitoreo en Tiempo Real - Elementos de Protección Personal</p>
+  </header>
+
+  <div class="actions">
+    <button id="toggle-mode" class="btn" type="button">Forzar modo</button>
+    <button id="print-a3" class="btn" type="button">Imprimir / Guardar A3</button>
+  </div>
+
+  <section class="executive-summary" aria-label="Resumen Ejecutivo">
+    <h2>Resumen Ejecutivo</h2>
+    <p><strong>Situación Actual:</strong> SIGMA presenta desafíos críticos en eficiencia operacional con 3 de 6 KPIs en estado crítico.
+    La empresa requiere intervención inmediata en tiempos de entrega, calidad de productos y gestión de inventarios.
+    El dashboard identifica oportunidades de mejora valoradas en $45K mensuales de ahorro potencial.</p>
+  </section>
+
+  <main class="kpi-grid">
+    <!-- KPI 1 -->
+    <section class="kpi-card" aria-label="KPI: Tiempo promedio de entrega">
+      <div class="kpi-header">
+        <div class="kpi-title">Tiempo Promedio de Entrega</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="entrega" data-valor="8.5" data-meta="5" data-critico="7">8.5 días</div>
+      <div class="kpi-target">Meta: 5 días | Comprometido: 7 días</div>
+      <div class="chart-container"><canvas id="deliveryChart" class="chart" aria-label="Tiempo de entrega"></canvas></div>
+    </section>
+
+    <!-- KPI 2 -->
+    <section class="kpi-card" aria-label="KPI: Tasa de productos defectuosos">
+      <div class="kpi-header">
+        <div class="kpi-title">Tasa de Productos Defectuosos</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="defectos" data-valor="4.2" data-meta="2" data-critico="5">4.2%</div>
+      <div class="kpi-target">Meta: ≤ 2% | Umbral crítico: 5%</div>
+      <div class="chart-container"><canvas id="defectChart" class="chart" aria-label="Defectos"></canvas></div>
+    </section>
+
+    <!-- KPI 3 -->
+    <section class="kpi-card" aria-label="KPI: Eficiencia de producción">
+      <div class="kpi-header">
+        <div class="kpi-title">Eficiencia de Producción</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="eficiencia" data-valor="78" data-meta="85" data-critico="80">78%</div>
+      <div class="kpi-target">Meta: 85% | Mínimo aceptable: 80%</div>
+      <div class="chart-container"><canvas id="efficiencyChart" class="chart" aria-label="Eficiencia"></canvas></div>
+    </section>
+
+    <!-- KPI 4 -->
+    <section class="kpi-card" aria-label="KPI: Nivel de stock (Fill Rate)">
+      <div class="kpi-header">
+        <div class="kpi-title">Nivel de Stock (Fill Rate)</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="fillrate" data-valor="82" data-meta="95" data-critico="90">82%</div>
+      <div class="kpi-target">Meta: 95% | Mínimo: 90%</div>
+      <div class="chart-container"><canvas id="stockChart" class="chart" aria-label="Fill rate"></canvas></div>
+    </section>
+
+    <!-- KPI 5 -->
+    <section class="kpi-card" aria-label="KPI: Tasa de errores en pedidos">
+      <div class="kpi-header">
+        <div class="kpi-title">Tasa de Errores en Pedidos</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="errores" data-valor="1.8" data-meta="2" data-critico="3">1.8%</div>
+      <div class="kpi-target">Meta: ≤ 2% | Umbral crítico: 3%</div>
+      <div class="chart-container"><canvas id="errorChart" class="chart" aria-label="Errores"></canvas></div>
+    </section>
+
+    <!-- KPI 6 -->
+    <section class="kpi-card" aria-label="KPI: Rotación de personal operativo">
+      <div class="kpi-header">
+        <div class="kpi-title">Rotación Personal Operativo</div>
+        <div class="kpi-status status-good">BUENO</div>
+      </div>
+      <div class="kpi-value" data-kpi="rotacion" data-valor="18" data-meta="8" data-critico="12">18%</div>
+      <div class="kpi-target">Meta: ≤ 8% | Industria promedio: 12%</div>
+      <div class="chart-container"><canvas id="turnoverChart" class="chart" aria-label="Rotación"></canvas></div>
+    </section>
+  </main>
+
+  <!-- Acordeones: en móvil quedan cerrados por defecto; en escritorio se ven abiertos -->
+  <section class="accordion" id="accordion">
+    <div class="acc-item">
+      <button class="acc-btn" data-acc="fuentes">Fuentes de Datos y Automatización</button>
+      <div class="acc-panel" id="panel-fuentes">
+        <div class="source-grid">
+          <div class="source-item"><h4>KPI 1: Tiempo de Entrega</h4><p><strong>Fuente:</strong> ERP + GPS</p><p><strong>Frecuencia:</strong> Tiempo real</p><p><strong>Automatización:</strong> Webhooks</p></div>
+          <div class="source-item"><h4>KPI 2: Defectuosos</h4><p><strong>Fuente:</strong> Calidad digital</p><p><strong>Frecuencia:</strong> Por lote</p><p><strong>Automatización:</strong> Formularios + RPA</p></div>
+          <div class="source-item"><h4>KPI 3: Eficiencia</h4><p><strong>Fuente:</strong> IoT + MES</p><p><strong>Frecuencia:</strong> Horaria</p><p><strong>Automatización:</strong> Alertas</p></div>
+          <div class="source-item"><h4>KPI 4: Stock</h4><p><strong>Fuente:</strong> WMS + RFID</p><p><strong>Frecuencia:</strong> Tiempo real</p><p><strong>Automatización:</strong> Reposición auto</p></div>
+          <div class="source-item"><h4>KPI 5: Errores</h4><p><strong>Fuente:</strong> CRM + devoluciones</p><p><strong>Frecuencia:</strong> Diaria</p><p><strong>Automatización:</strong> API</p></div>
+          <div class="source-item"><h4>KPI 6: Rotación</h4><p><strong>Fuente:</strong> HRIS</p><p><strong>Frecuencia:</strong> Mensual</p><p><strong>Automatización:</strong> Encuestas</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="acc-item">
+      <button class="acc-btn" data-acc="reflexion">Reflexión Final</button>
+      <div class="acc-panel" id="panel-reflexion">
+        <div class="reflection">
+          <h3>Impacto y Oportunidades</h3>
+          <div class="reflection-content">
+            <div class="reflection-section">
+              <h4>Toma de decisiones</h4>
+              <ul><li>Semáforo detecta críticos</li><li>Tendencias proactivas</li><li>Causas raíz</li><li>Benchmarking</li><li>Alertas rápidas</li></ul>
+            </div>
+            <div class="reflection-section">
+              <h4>Ventajas digitalización</h4>
+              <ul><li>Menos reportes manuales</li><li>Menos errores</li><li>Acceso 24/7</li><li>Historial para tendencias</li><li>Integración y escalabilidad</li></ul>
+            </div>
+            <div class="reflection-section">
+              <h4>Limitaciones</h4>
+              <ul><li>Calidad de datos</li><li>Inversión inicial</li><li>Capacitación</li><li>KPIs cualitativos</li><li>Mantenimiento</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // --- Utilidades y modo ---
+  const $ = (s)=>document.querySelector(s);
+  const isMobile = () => window.matchMedia('(max-width: 680px)').matches;
+  let forced = null; // 'mobile' | 'desktop' | null
+
+  $('#print-a3').addEventListener('click', ()=>window.print());
+  $('#toggle-mode').addEventListener('click', ()=>{
+    forced = forced==='mobile' ? 'desktop' : forced==='desktop' ? null : 'mobile';
+    applyMode();
+    renderAll();
+    alert('Modo actual: ' + (forced || (isMobile()?'mobile auto':'desktop auto')));
+  });
+
+  // Acordeones
+  const accState = { fuentes: !isMobile(), reflexion: !isMobile() };
+  function bindAccordions(){
+    document.querySelectorAll('.acc-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const key = btn.dataset.acc;
+        accState[key] = !accState[key];
+        updateAccPanels();
+      };
+    });
+    updateAccPanels();
+  }
+  function updateAccPanels(){
+    $('#panel-fuentes').style.display = accState.fuentes ? 'block' : 'none';
+    $('#panel-reflexion').style.display = accState.reflexion ? 'block' : 'none';
+  }
+
+  // Semáforo
+  function setBadge(el, tipo='menor-mejor'){
+    const v=parseFloat(el.dataset.valor), meta=parseFloat(el.dataset.meta), crit=parseFloat(el.dataset.critico);
+    const badge = el.closest('.kpi-card').querySelector('.kpi-status');
+    let cls='status-good', txt='BUENO';
+    if(tipo==='menor-mejor'){ if(v>crit){cls='status-critical';txt='CRÍTICO'} else if(v>meta){cls='status-warning';txt='ALERTA'} }
+    else { if(v<crit){cls='status-critical';txt='CRÍTICO'} else if(v<meta){cls='status-warning';txt='ALERTA'} }
+    badge.className=`kpi-status ${cls}`; badge.textContent=txt;
+  }
+
+  // Canvas helpers (offline mini engine)
+  const dpi = ()=> (window.devicePixelRatio||1);
+  function prepCanvas(cv, padding=30){
+    const r=dpi(), w=cv.clientWidth, h=cv.clientHeight;
+    cv.width=Math.max(1,Math.floor(w*r)); cv.height=Math.max(1,Math.floor(h*r));
+    const ctx=cv.getContext('2d'); ctx.setTransform(r,0,0,r,0,0); return {ctx,w,h,pad:padding};
+  }
+  function drawAxes(ctx,w,h,pad,yMin,yMax,yFmt=(v)=>v, xLabels=[]){
+    ctx.strokeStyle="#c9d1d9"; ctx.lineWidth=1; const steps=4;
+    for(let i=0;i<=steps;i++){
+      const y=pad+(h-2*pad)*(i/steps);
+      ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(w-pad,y); ctx.stroke();
+      const val=yMax-(yMax-yMin)*(i/steps);
+      ctx.fillStyle="#6b7280"; ctx.font="12px Segoe UI"; ctx.fillText(yFmt(Math.round(val*10)/10), 6, y+4);
+    }
+    // etiquetas X (si vienen)
+    if(xLabels.length){
+      ctx.fillStyle="#4b5563"; ctx.font="12px Segoe UI"; ctx.textAlign="center";
+      const X=(i)=> pad + (w-2*pad)*(i/(xLabels.length-1||1));
+      xLabels.forEach((t,i)=>ctx.fillText(t, X(i), h-8));
+    }
+  }
+  function lineChart(cv, labels, datasets, {yMin=null,yMax=null,yFmt=(v)=>v, mini=false}={}){
+    const pad = mini? 30 : 40;
+    const {ctx,w,h,pad:pd}=prepCanvas(cv,pad);
+    let mn=Infinity,mx=-Infinity;
+    datasets.forEach(ds=>ds.data.forEach(v=>{mn=Math.min(mn,v);mx=Math.max(mx,v)}));
+    if(yMin!==null) mn=yMin; if(yMax!==null) mx=yMax; if(mn===mx){mn-=1;mx+=1;}
+    drawAxes(ctx,w,h,pd,mn,mx,yFmt, labels);
+    const X=(i)=> pd + (w-2*pd) * (i/(labels.length-1||1));
+    const Y=(v)=> pd + (h-2*pd) * (1-(v-mn)/(mx-mn));
+    datasets.forEach(ds=>{
+      ctx.beginPath(); ctx.lineWidth= mini? 1.6: 2; ctx.strokeStyle=ds.color||"#1f77b4";
+      if(ds.dash){ ctx.setLineDash(ds.dash); } else { ctx.setLineDash([]); }
+      ds.data.forEach((v,i)=>{ const x=X(i), y=Y(v); (i?ctx.lineTo(x,y):ctx.moveTo(x,y)); });
+      ctx.stroke();
+      if(ds.fill){
+        ctx.lineTo(X(ds.data.length-1),Y(mn)); ctx.lineTo(X(0),Y(mn)); ctx.closePath();
+        ctx.fillStyle=ds.fill; ctx.globalAlpha=0.22; ctx.fill(); ctx.globalAlpha=1;
+      }
+    });
+  }
+  function barChart(cv, labels, values, colors, {yMax=null,yFmt=(v)=>v, mini=false}={}){
+    const pad = mini? 30 : 40;
+    const {ctx,w,h,pad:pd}=prepCanvas(cv,pad);
+    const mx = yMax!==null? yMax : Math.max(...values,1); const mn=0;
+    drawAxes(ctx,w,h,pd,mn,mx,yFmt, labels);
+    const bw = (w-2*pd)/labels.length*(mini?0.52:0.6);
+    labels.forEach((lab,i)=>{
+      const x = pd + (w-2*pd)*((i+(mini?0.24:0.2))/labels.length);
+      const val=values[i]; const y = pd + (h-2*pd)*(1-(val-mn)/(mx-mn));
+      ctx.fillStyle = colors[i] || "#60a5fa"; ctx.fillRect(x,y,bw,(pd+h-2*pd)-y);
+    });
+  }
+  function doughnutChart(cv, values, colors, cutout=0.7, mini=false){
+    const {ctx,w,h}=prepCanvas(cv, mini? 16: 20);
+    const cx=w/2, cy=h/2, R=Math.min(w,h)/2 - (mini? 12: 20), r=R*cutout;
+    const total = values.reduce((a,b)=>a+b,0)||1; let ang= -Math.PI/2;
+    values.forEach((v,i)=>{
+      const a2=ang+2*Math.PI*(v/total);
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.fillStyle=colors[i]||"#60a5fa";
+      ctx.arc(cx,cy,R,ang,a2); ctx.closePath(); ctx.fill(); ang=a2;
+    });
+    ctx.globalCompositeOperation="destination-out";
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation="source-over";
+    const pct = Math.round((values[0]/total)*100);
+    ctx.fillStyle="#111827"; ctx.font=(mini? "bold 18px":"bold 22px")+" Segoe UI";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(pct+"%", cx, cy);
+  }
+
+  // Datos base
+  const DS = {
+    delivery:{ labels:['Ene','Feb','Mar','Abr','May','Jun'], real:[7.2,7.8,8.1,8.5,8.2,8.5], meta:[5,5,5,5,5,5] },
+    defects:{ labels:['Ene','Feb','Mar','Abr','May','Jun'], vals:[3.2,3.8,4.1,4.5,4.0,4.2] },
+    eff:{ vals:[78,22] },
+    stock:{ labels:['Sem 1','Sem 2','Sem 3','Sem 4'], vals:[85,80,82,82] },
+    error:{ labels:['Ene','Feb','Mar','Abr','May','Jun'], vals:[2.1,1.9,1.7,1.8,1.6,1.8] },
+    turn:{ labels:['Q1','Q2','Q3','Q4'], vals:[15,16,17,18], meta:[8,8,8,8] }
+  };
+
+  function applyMode(){
+    const mode = forced || (isMobile() ? 'mobile' : 'desktop');
+    document.documentElement.setAttribute('data-mode', mode);
+    // En móvil: acordeones cerrados por defecto
+    accState.fuentes = (mode==='desktop');
+    accState.reflexion = (mode==='desktop');
+    updateAccPanels();
+  }
+
+  function renderAll(){
+    // Semáforos
+    const mayorMejor = new Set(['eficiencia','fillrate']);
+    document.querySelectorAll('.kpi-value').forEach(el=>setBadge(el, mayorMejor.has(el.dataset.kpi)?'mayor-mejor':'menor-mejor'));
+
+    // Limpiar canvases
+    ['deliveryChart','defectChart','efficiencyChart','stockChart','errorChart','turnoverChart'].forEach(id=>{
+      const c=document.getElementById(id); const ctx=c.getContext('2d'); ctx && ctx.clearRect(0,0,c.width,c.height);
+    });
+
+    const mode = document.documentElement.getAttribute('data-mode') || (isMobile()?'mobile':'desktop');
+    const mini = (mode==='mobile');
+
+    // Dibujos
+    lineChart($('#deliveryChart'), DS.delivery.labels, [
+      {data:DS.delivery.real,color:'#ff7675',fill:'#ff7675'},
+      {data:DS.delivery.meta,color:'#00b894',dash:[6,6]}
+    ], {yMin:0,yFmt:(v)=>v+' días', mini});
+
+    barChart($('#defectChart'), DS.defects.labels, DS.defects.vals,
+      ['#fdcb6e','#fdcb6e','#fdcb6e','#ff7675','#fdcb6e','#fdcb6e'],
+      {yMax:6,yFmt:(v)=>v+'%', mini});
+
+    doughnutChart($('#efficiencyChart'), DS.eff.vals, ['#fdcb6e','#dddddd'], 0.72, mini);
+
+    lineChart($('#stockChart'), DS.stock.labels, [
+      {data:DS.stock.vals,color:'#ff7675',fill:'#ff7675'}
+    ], {yMin:70,yMax:100,yFmt:(v)=>v+'%', mini});
+
+    barChart($('#errorChart'), DS.error.labels, DS.error.vals, Array(6).fill('#00b894'),
+      {yMax:3,yFmt:(v)=>v+'%', mini});
+
+    lineChart($('#turnoverChart'), DS.turn.labels, [
+      {data:DS.turn.vals,color:'#ff7675',fill:'#ff7675'},
+      {data:DS.turn.meta,color:'#00b894',dash:[6,6]}
+    ], {yMin:0,yMax:20,yFmt:(v)=>v+'%', mini});
+  }
+
+  // init
+  bindAccordions();
+  applyMode();
+  renderAll();
+
+  // Redibujar en resize/orientación (debounce)
+  let t; const onResize=()=>{ clearTimeout(t); t=setTimeout(()=>{ if(!forced){applyMode()} renderAll(); },150); };
+  window.addEventListener('resize', onResize, {passive:true});
+  window.addEventListener('orientationchange', onResize, {passive:true});
+</script>
+</body>
+</html>
